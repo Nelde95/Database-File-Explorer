@@ -29,6 +29,7 @@ int main(int argc, char *argv[]) {
 
 void les_data   (konto_t *brukertabell) {
 
+	//opens the passwd file, in readmode
 	FILE *passwd = fopen( "/etc/passwd", "r" );
 	if ( !passwd ) {
 
@@ -47,8 +48,12 @@ void les_data   (konto_t *brukertabell) {
 	for ( i = 0; i < 200 && ( -1 != ( len=getline( &txt, &len, passwd ) ) ); i++) {
 
 		saveptr = NULL;
+		//Example line from passwd: brukernavn:x:uid:gid:navn,,,:homedir
+		//>brukernavn<:x:...
 		bn = strtok_r( txt, ":", &saveptr );
+		//brukernavn:>x<:...
 		strtok_r( NULL, ":", &saveptr );
+		//...x:>uid<:gid... ,'scans' the 'uid' string and sets uid = the decimal result
 		sscanf( strtok_r( NULL, ":", &saveptr ), "%d", &uid );
 
 		if( uid < 1000 ) {
@@ -59,15 +64,19 @@ void les_data   (konto_t *brukertabell) {
 
 			strcpy( brukertabell[i].brukernavn, bn );
 
+			//...uid:>gid<:navn...
 			strtok_r( NULL, ":", &saveptr );
+			//...gid:>navn<,,,:homedir
 			strcpy( navn, strtok_r( NULL, ",:", &saveptr ) );
 			saveptr = NULL;
 
+			//using strtok_r on the 'navn' string
 			p = strtok_r( navn, " ", &saveptr );
 			j = 0;
 			while( p != NULL )
 			{
 
+				//copies each part of the name into 'navnListe[]'
 				strcpy( navnListe[j++], p );
 				p = strtok_r( NULL, " ", &saveptr );
 			}
@@ -93,6 +102,7 @@ void les_data   (konto_t *brukertabell) {
 			strcpy( brukertabell[i].etternavn, en );
 		}
 	}
+	//fills the last + 1 with ""
 	strcpy( brukertabell[i].brukernavn, "");
 	strcpy( brukertabell[i].fornavn, "");
 	strcpy( brukertabell[i].etternavn, "");
