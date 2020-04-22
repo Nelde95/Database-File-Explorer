@@ -95,11 +95,13 @@ CREATE TABLE Fil (
 INSERT INTO Fil (id, par, filename, accessrights, devicenum, filetype, gid, hardlinks_qty,
 	mountpoint, optiotransfer, filesize, uid)
 	SELECT a.id, b.id,
-		SUBSTR(a.filename, LENGTH(b.filename)+2, LENGTH(a.filename)), a.accessrights, a.devicenum, a.filetype, a.gid, a.hardlinks_qty, a.mountpoint,
+		COALESCE(SUBSTR(a.filename, LENGTH(rtrim(b.filename, '/'))+2, LENGTH(a.filename)), "/"), a.accessrights, a.devicenum, a.filetype, a.gid, a.hardlinks_qty, a.mountpoint,
 		a.optiotransfer, a.filesize, a.uid FROM csv_import AS a
 		LEFT JOIN csv_import AS b
-		ON b.filename = SUBSTR(rtrim(a.filename, replace(a.filename, '/', '')), 1,
-			LENGTH(rtrim(a.filename, replace(a.filename, '/', '')))-1);
+		ON (b.filename = SUBSTR(rtrim(a.filename, replace(a.filename, '/', '')), 1,
+			LENGTH(rtrim(a.filename, replace(a.filename, '/', '')))-1))
+		OR (b.filename = "/" AND (LENGTH(a.filename) - LENGTH(replace(a.filename, '/', ''))) = 1
+			AND a.filename != "/");
 UPDATE Fil SET filename = "/" WHERE filename ISNULL;
 
 DROP TABLE IF EXISTS csv_import;
