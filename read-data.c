@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
+#include <sqlite3.h>
 
 struct brukerkonto {
 	char brukernavn[100];
@@ -27,87 +28,85 @@ int main(int argc, char *argv[]) {
 }
 
 
-void les_data   (konto_t *brukertabell) {
+void les_data   (konto_t *brukertabell)
+{
+	sqlite3* db;
+	sqlite3_stmt* res;
 
-	//opens the passwd file, in readmode
-	FILE *passwd = fopen( "/etc/passwd", "r" );
-	if ( !passwd ) {
-
-		printf( "Could not retrieve passwd" );
+	if(sqlite3_open("files.db", &db) != SQLITE_OK)
+	{
+		printf("could not open database \"files.db\"\n");
+		exit(1);
 	}
+	
+	if(sqlite3_prepare_v2(db,
+		"SELECT uid, brukernavn, navn FROM Bruker",
+		-1, &res, 0) != SQLITE_OK)
+	{
+		printf("could not prepare statement\n");
+		exit(1);
+	}
+	
+	int i;
+	for(i = 0; (i < 200) && (sqlite3_step(res) == SQLITE_ROW); i++)
+	{
+		char  *saveptr = NULL;
+		konto_t bruker;
+		char *brukernavn, *p;
+		char navn[350], fornavn[250], etternavn[100];
+		char navnListe[5][150] = {"","","","",""};
+		int j, k, uid;
 
-	char  *saveptr = NULL;
-	char  *txt = NULL;
-	size_t len = 0;
+		uid = sqlite3_column_int(res, 0);
+		brukernavn = strdup(sqlite3_column_text(res, 1));
+		strcpy(navn, sqlite3_column_text(res, 2));
 
-	konto_t bruker;
-	char *bn, *p;
-	char navn[350], fn[250], en[100];
-	char navnListe[5][150];
-	int i, j, k, uid;
-	for ( i = 0; i < 200 && ( -1 != ( len=getline( &txt, &len, passwd ) ) ); i++) {
-
-		saveptr = NULL;
-		//Example line from passwd: brukernavn:x:uid:gid:navn,,,:homedir
-		//>brukernavn<:x:...
-		bn = strtok_r( txt, ":", &saveptr );
-		//brukernavn:>x<:...
-		strtok_r( NULL, ":", &saveptr );
-		//...x:>uid<:gid... ,'scans' the 'uid' string and sets uid = the decimal result
-		sscanf( strtok_r( NULL, ":", &saveptr ), "%d", &uid );
-
-		if( uid < 1000 ) {
-
+		if(uid < 1000)
+		{
 			i--;
+			continue;
 		}
-		else {
 
-			strcpy( brukertabell[i].brukernavn, bn );
-
-			//...uid:>gid<:navn...
-			strtok_r( NULL, ":", &saveptr );
-			//...gid:>navn<,,,:homedir
-			strcpy( navn, strtok_r( NULL, ",:", &saveptr ) );
-			saveptr = NULL;
-
-			//using strtok_r on the 'navn' string
-			p = strtok_r( navn, " ", &saveptr );
-			j = 0;
-			while( p != NULL )
+		//using strtok_r on the 'navn' string
+		p = strtok_r( navn, " ", &saveptr );
+		j = 0;
+		while( p != NULL )
+		{
+			//copies each part of the name into 'navnListe[]'
+			strcpy(navnListe[j++], p);
+			p = strtok_r(NULL, " ", &saveptr);
+		}
+		if ( j <= 1 )
+		{
+			strcpy(etternavn, "");
+			strcpy(fornavn, navnListe[0]);
+		}
+		else
+		{
+			strcpy(fornavn, "");
+			for( k = 0; k < j - 1; k++ )
 			{
-
-				//copies each part of the name into 'navnListe[]'
-				strcpy( navnListe[j++], p );
-				p = strtok_r( NULL, " ", &saveptr );
-			}
-			if ( j == 1 ) {
-
-				strcpy( fn, navnListe[j - 1] );
-			}
-			else {
-
-				strcpy( fn, "" );
-				for( k = 0; k < j - 1; k++ ) {
-
-					strcat( fn, navnListe[k] );
-					if ( k < j - 2 ) {
-
-						strcat( fn, " " );
-					}
+				strcat( fornavn, navnListe[k] );
+				if ( k < j - 2 )
+				{
+					strcat( fornavn, " " );
 				}
-				strcpy( en, navnListe[k] );
 			}
-
-			strcpy( brukertabell[i].fornavn, fn );
-			strcpy( brukertabell[i].etternavn, en );
+			strcpy(etternavn, navnListe[k]);
 		}
+		strcpy(brukertabell[i].brukernavn, brukernavn);
+		strcpy(brukertabell[i].fornavn, fornavn);
+		strcpy(brukertabell[i].etternavn, etternavn);
 	}
-	//fills the last + 1 with ""
-	strcpy( brukertabell[i].brukernavn, "");
-	strcpy( brukertabell[i].fornavn, "");
-	strcpy( brukertabell[i].etternavn, "");
-	fclose( passwd );
+	sqlite3_finalize(res);
+	sqlite3_close_v2(db);
+
+	strcpy(brukertabell[i].brukernavn, "");
+	strcpy(brukertabell[i].fornavn, "");
+	strcpy(brukertabell[i].etternavn, "");
+	return;
 }
+
 
 void skriv_data (konto_t *brukertabell, int argc, char *argv[]) {
 
