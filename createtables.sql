@@ -104,3 +104,15 @@ UPDATE Fil SET filename = "/" WHERE filename ISNULL;
 
 DROP TABLE IF EXISTS csv_import;
 DROP TABLE IF EXISTS Bruker_;
+
+DROP VIEW IF EXISTS sum_view;
+CREATE VIEW sum_view
+AS
+SELECT
+	b.brukernavn AS "brukernavn",
+	b.navn AS "fulltnavn",
+	SUM(f.filesize) AS "sum av filstorelser"
+FROM Fil AS f
+JOIN Bruker AS b
+ON f.uid = b.uid
+GROUP BY f.uid;
